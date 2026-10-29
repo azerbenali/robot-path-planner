@@ -39,12 +39,17 @@ SearchResult PathPlanner::findPath(const Grid& grid, GridCoord start, GridCoord 
     pending.push(start);
     discovered[static_cast<std::size_t>(start.row)][static_cast<std::size_t>(start.col)] = true;
     
-    // A fixed neighbor order makes the chosen shortest path and replay deterministic.
+     // Fixed neighbor order for deterministic shortest path and replay
     constexpr std::array<GridCoord, 4> directions{{{-1, 0}, {0, 1}, {1, 0}, {0, -1}}};
+
+    // 4. Run Breadth-First Search loop
     while (!pending.empty()) {
         const GridCoord current = pending.front();
         pending.pop();
+
         result.expansionOrder.push_back(current);
+
+        // Check if destination is reached
         if (current == goal) {
             result.status = SearchStatus::Found;
             for (GridCoord cell = goal;; cell = parent[static_cast<std::size_t>(cell.row)][static_cast<std::size_t>(cell.col)]) {
@@ -57,16 +62,21 @@ SearchResult PathPlanner::findPath(const Grid& grid, GridCoord start, GridCoord 
             return result;
         }
 
+        // Traverse neighbors
         for (const GridCoord direction : directions) {
             const GridCoord next{current.row + direction.row, current.col + direction.col};
+
             if (!inBounds(grid, next)) {
                 continue;
             }
+
             const auto row = static_cast<std::size_t>(next.row);
             const auto col = static_cast<std::size_t>(next.col);
+
             if (grid[row][col] || discovered[row][col]) {
                 continue;
             }
+
             discovered[row][col] = true;
             parent[row][col] = current;
             pending.push(next);
