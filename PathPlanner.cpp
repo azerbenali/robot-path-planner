@@ -23,6 +23,22 @@ SearchResult PathPlanner::findPath(const Grid& grid, GridCoord start, GridCoord 
             return result;
         }
     }
+    
+    // 2. Validate start and goal positions
+    if (!inBounds(grid, start) || !inBounds(grid, goal) ||
+        grid[static_cast<std::size_t>(start.row)][static_cast<std::size_t>(start.col)] ||
+        grid[static_cast<std::size_t>(goal.row)][static_cast<std::size_t>(goal.col)]) {
+        return result;
+    }
+
+    // 3. Initialize search structures
+    std::vector<std::vector<bool>> discovered(grid.size(), std::vector<bool>(columns, false));
+    std::vector<std::vector<GridCoord>> parent(grid.size(), std::vector<GridCoord>(columns));
+    std::queue<GridCoord> pending;
+
+    pending.push(start);
+    discovered[static_cast<std::size_t>(start.row)][static_cast<std::size_t>(start.col)] = true;
+    
     // A fixed neighbor order makes the chosen shortest path and replay deterministic.
     constexpr std::array<GridCoord, 4> directions{{{-1, 0}, {0, 1}, {1, 0}, {0, -1}}};
     while (!pending.empty()) {
