@@ -7,57 +7,100 @@
 #include <string>
 
 namespace {
-constexpr int WindowWidth = 1280, WindowHeight = 800;
-constexpr int Rows = 16, Cols = 20, CellSize = 36, GridX = 65, GridY = 132;
-constexpr float PanelX = 830.0f, PanelWidth = 400.0f;
-constexpr float ExploreRate = 35.0f, MoveRate = 3.0f;
-constexpr std::array<float, 4> Speeds{0.5f, 1.0f, 2.0f, 4.0f};
-const Color Background{238, 242, 243, 255}, Ink{31, 44, 52, 255};
-const Color Muted{91, 110, 119, 255}, Panel{255, 255, 255, 255};
-const Color Empty{248, 249, 247, 255}, Wall{48, 64, 72, 255};
-const Color Line{194, 204, 205, 255}, Explored{204, 226, 235, 255};
-const Color Green{42, 145, 91, 255}, Amber{225, 157, 48, 255};
-const Color Blue{39, 109, 148, 255}, Route{40, 121, 163, 255};
 
+// Configuration Constants
+constexpr int WindowWidth = 1280;
+constexpr int WindowHeight = 800;
+constexpr int Rows = 16;
+constexpr int Cols = 20;
+constexpr int CellSize = 36;
+constexpr int GridX = 65;
+constexpr int GridY = 132;
+
+constexpr float PanelX = 830.0f;
+constexpr float PanelWidth = 400.0f;
+constexpr float ExploreRate = 35.0f;
+constexpr float MoveRate = 3.0f;
+
+constexpr std::array<float, 4> Speeds{0.5f, 1.0f, 2.0f, 4.0f};
+
+// Color Palette
+const Color Background{238, 242, 243, 255};
+const Color Ink{31, 44, 52, 255};
+const Color Muted{91, 110, 119, 255};
+const Color Panel{255, 255, 255, 255};
+const Color Empty{248, 249, 247, 255};
+const Color Wall{48, 64, 72, 255};
+const Color Line{194, 204, 205, 255};
+const Color Explored{204, 226, 235, 255};
+const Color Green{42, 145, 91, 255};
+const Color Amber{225, 157, 48, 255};
+const Color Blue{39, 109, 148, 255};
+const Color Route{40, 121, 163, 255};
+
+// Enums & Structs
 enum class Tool { Wall, Erase, Start, Goal };
 enum class Phase { Ready, Exploring, Moving, Paused, Completed, NoRoute };
 
 struct App {
     Grid grid = Grid(Rows, std::vector<bool>(Cols, false));
-    GridCoord start{2, 2}, goal{13, 17};
+    GridCoord start{2, 2};
+    GridCoord goal{13, 17};
     Tool tool = Tool::Wall;
-    Phase phase = Phase::Ready, pausedPhase = Phase::Ready;
+    Phase phase = Phase::Ready;
+    Phase pausedPhase = Phase::Ready;
     SearchResult search{};
-    std::size_t revealed = 0, segment = 0;
-    float exploreProgress = 0.0f, segmentProgress = 0.0f;
+    std::size_t revealed = 0;
+    std::size_t segment = 0;
+    float exploreProgress = 0.0f;
+    float segmentProgress = 0.0f;
     int speedIndex = 1;
     bool gridDrag = false;
     std::string message = "Choose a tool, then edit the grid.";
 };
 
-bool same(GridCoord a, GridCoord b) { return a.row == b.row && a.col == b.col; }
-bool active(const App& a) { return a.phase == Phase::Exploring || a.phase == Phase::Moving || a.phase == Phase::Paused; }
-Vector2 center(GridCoord p) { return {GridX + (p.col + 0.5f)*CellSize, GridY + (p.row + 0.5f)*CellSize}; }
+// Helper Functions
+bool same(GridCoord a, GridCoord b) { 
+    return a.row == b.row && a.col == b.col; 
+}
+
+bool active(const App& a) { 
+    return a.phase == Phase::Exploring || a.phase == Phase::Moving || a.phase == Phase::Paused; 
+}
+
+Vector2 center(GridCoord p) { 
+    return {GridX + (p.col + 0.5f) * CellSize, GridY + (p.row + 0.5f) * CellSize}; 
+}
+
 bool gridCell(Vector2 mouse, GridCoord& out) {
-    if (mouse.x < GridX || mouse.y < GridY || mouse.x >= GridX + Cols*CellSize || mouse.y >= GridY + Rows*CellSize) return false;
-    out = {static_cast<int>((mouse.y - GridY)/CellSize), static_cast<int>((mouse.x - GridX)/CellSize)};
+    if (mouse.x < GridX || mouse.y < GridY || mouse.x >= GridX + Cols * CellSize || mouse.y >= GridY + Rows * CellSize) {
+        return false;
+    }
+    out = {static_cast<int>((mouse.y - GridY) / CellSize), static_cast<int>((mouse.x - GridX) / CellSize)};
     return true;
 }
+
 const char* toolName(Tool t) {
-    switch (t) { case Tool::Wall: return "Place obstacle"; case Tool::Erase: return "Erase obstacle"; case Tool::Start: return "Set start"; case Tool::Goal: return "Set goal"; }
+    switch (t) { 
+        case Tool::Wall: return "Place obstacle"; 
+        case Tool::Erase: return "Erase obstacle"; 
+        case Tool::Start: return "Set start"; 
+        case Tool::Goal: return "Set goal"; 
+    }
     return "";
 }
+
 const char* phaseName(Phase p) {
-    switch (p) { case Phase::Ready: return "Ready to plan"; case Phase::Exploring: return "Exploring"; case Phase::Moving: return "Robot moving"; case Phase::Paused: return "Paused"; case Phase::Completed: return "Route complete"; case Phase::NoRoute: return "No route available"; }
+    switch (p) { 
+        case Phase::Ready: return "Ready to plan"; 
+        case Phase::Exploring: return "Exploring"; 
+        case Phase::Moving: return "Robot moving"; 
+        case Phase::Paused: return "Paused"; 
+        case Phase::Completed: return "Route complete"; 
+        case Phase::NoRoute: return "No route available"; 
+    }
     return "";
 }
-void resetRun(App& a) {
-    a.phase = Phase::Ready; a.pausedPhase = Phase::Ready; a.search = SearchResult{};
-    a.revealed = a.segment = 0; a.exploreProgress = a.segmentProgress = 0.0f;
-    a.message = "Ready to edit or plan a route.";
-}
-void loadDemo(App& a) {
-    a.grid = Grid(Rows, std::vector<bool>(Cols, false));
     // Alternating gaps force a route with turns without obscuring the robot.
     for (int r = 0; r < Rows; ++r) {
         if (r != 11 && r != 12) a.grid[r][5] = true;
